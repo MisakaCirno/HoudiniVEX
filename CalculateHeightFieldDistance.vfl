@@ -1,0 +1,200 @@
+//用于计算每一个Voxel与最近的mask中有值的Voxel的距离。
+
+//向四周扩展1格
+vector2 expandRange(int maxRange; vector nowRange)
+{
+    int min = int(nowRange.x - 1);
+    //printf("\tnew min is : %g\n", min);
+    if (min <= 0)
+    {
+        //printf("\t\tnew min is out of range! set to 0!\n");
+        min = 0;
+    }
+
+    int max = int(nowRange.y + 1);
+    //printf("\tnew max is : %g\n", max);
+    if (max >= maxRange)
+    {
+        //printf("\tnew max is out of range! set to %g!\n", nowRange.y);
+        max = int(nowRange.y);
+    }
+
+    vector2 result = set(min, max);
+    return result;
+}
+
+float calculateDistance(vector nowPos; vector targetIndex)
+{
+    //只跟水系做对比
+    float mask = volumeindex(0, "mask", targetIndex);
+    if (mask == 0)
+    {
+        //printf("mask at %g is 0\n", targetIndex);
+        return -1;
+    }
+
+    float value = volumeindex(0, "height", targetIndex);
+    vector targetPos = volumeindextopos(0, "height", targetIndex);
+    //组合成真正的当前位置
+    targetPos.y = value;
+
+    float twoPointDis = distance(nowPos, targetPos);
+    //printf("(!)at %g is %g\n", targetIndex, twoPointDis);
+    return twoPointDis;
+}
+
+float compareDistance(float newDistance; float minDistance)
+{
+    //第一次的时候
+    if (minDistance == -1 || minDistance < 0)
+    {
+        if (newDistance > 0)
+        {
+            return newDistance;
+        }
+        else
+        {
+            return minDistance;
+        }
+    }
+
+    //数据无效的时候
+    if (newDistance == -1 || newDistance == minDistance)
+    {
+        return minDistance;
+    }
+    //数据有效的时候
+    else
+    {
+        return newDistance;
+    }
+
+    //意料之外
+    printf("error compare with %g and %g\n", newDistance, minDistance);
+    return -1;
+}
+
+float getNearVoxelDistance(vector maxRange; vector center; vector nowPosition)
+{
+    int fuseCount = 0;
+
+    vector index = {0, 0, 0};
+
+    //volume的索引上下限
+    int maxX = int(maxRange.x);
+    int maxY = int(maxRange.y);
+    //printf("convert range, result is : %g | %g \n", maxX, maxY);
+
+    //搜索方形的范围
+    vector2 xRange = set(center.x, center.x);
+    vector2 yRange = set(center.y, center.y);
+
+    int isFisrt = 0;
+    float minDistance = -1;
+
+    int isNeedExpand = 1;
+
+    //往外扩展
+    while (isNeedExpand)
+    {
+        //printf("\nnow loop is : %g\n", fuseCount);
+
+        //先求出方块的范围
+        //printf("data before expand:\n");
+        //printf("xRange : %g | yRange : %g\n", xRange, yRange);
+
+        //printf("expand xRange\n");
+        xRange = expandRange(maxX, xRange);
+
+        //printf("expand yRange\n");
+        yRange = expandRange(maxY, yRange);
+
+        //printf("data after expand:\n");
+        //printf("xRange : %g | yRange : %g\n", xRange, yRange);
+
+        //voxel index 排列顺序
+        //ix 0→1 沿着y正方向增加
+        //iy 0→1 沿着x正方向增加
+        //左上 xmin ymin | 右上 xmin ymax
+        //左下 xmax ymin | 右下 xmax ymax
+
+        //top & bottom line
+        for (int yIndex = int(yRange.x); yIndex <= int(yRange.y); yIndex ++)
+        {
+            //printf("yIndex : %g | yRange.y : %g\n", yIndex, yRange.y);
+            index.y = yIndex;
+
+            index.x = int(xRange.x);
+            //printf("\ttop voxel :");
+            float topVoxelDistance = calculateDistance(nowPosition, index);
+            minDistance = compareDistance(topVoxelDistance, minDistance);
+            //printf("\ttop min dsitance is %g\n", minDistance);
+
+            index.x = int(xRange.y);
+            //printf("\tbottom voxel :");
+            float bottomVoxelDistance = calculateDistance(nowPosition, index);
+            minDistance = compareDistance(bottomVoxelDistance, minDistance);
+            //printf("\tbottom min dsitance is %g\n", minDistance);
+        }
+
+        //left & right line
+        for (int xIndex = int(xRange.x); xIndex <= int(xRange.y); xIndex ++)
+        {
+            //printf("xIndex : %g | xRange.y : %g\n", xIndex, xRange.y);
+            index.x = xIndex;
+
+            index.y = int(yRange.x);
+            //printf("\tleft voxel :");
+            float leftVoxelDistance = calculateDistance(nowPosition, index);
+            minDistance = compareDistance(leftVoxelDistance, minDistance);
+            //printf("\tleft min dsitance is %g\n", minDistance);
+
+            index.y = int(yRange.y);
+            //printf("\tright voxel :");
+            float rightVoxelDistance = calculateDistance(nowPosition, index);
+            minDistance = compareDistance(rightVoxelDistance, minDistance);
+            //printf("\tright min dsitance is %g\n", minDistance);
+        }
+
+        //大于1的时候找到了最近点
+        if (minDistance > 0)
+        {
+            //printf("found it!\n");
+            isNeedExpand = 0;
+            return minDistance;
+        }
+
+        //如果超出边界了，那就返回
+        if (xRange.x <= 0
+                && xRange.y >= maxX - 1
+                && yRange.x <= 0
+                && yRange.y >= maxY - 1)
+        {
+            //printf("not found!\n");
+            isNeedExpand = 0;
+            return -1;
+        }
+    }
+
+    return -1;
+}
+
+//函数定义
+//----- ----- ----- -----
+//流程代码
+//只针对不在水系中的voxel计算距离
+if (@mask == 0)
+{
+    vector maxRange = set(@resx, @resy, @resz);
+    vector centerIndex = set(@ix, @iy, @iz);
+
+    vector nowPosition = @P;
+    nowPosition.y = @height;
+
+    //printf("now process at : %g\n", centerIndex);
+    //printf("now position is : %g\n", nowPosition);
+    float distance = getNearVoxelDistance(maxRange, centerIndex, nowPosition);
+
+    @water_distance = distance;
+    //printf("index %g process done\n", centerIndex);
+}
