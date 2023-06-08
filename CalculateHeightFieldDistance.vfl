@@ -1,6 +1,6 @@
 //用于计算每一个Voxel与最近的mask中有值的Voxel的距离。
 
-//向四周扩展1格
+//搜索范围向四周扩展1格，如果已经到边界了则不再扩展
 vector2 expandRange(int maxRange; vector nowRange)
 {
     int min = int(nowRange.x - 1);
@@ -23,10 +23,11 @@ vector2 expandRange(int maxRange; vector nowRange)
     return result;
 }
 
-float calculateDistance(vector nowPos; vector targetIndex)
+//计算两Voxel之间的距离
+float calculateDistance(string compareLayerName; vector nowPos; vector targetIndex)
 {
-    //只跟水系做对比
-    float mask = volumeindex(0, "mask", targetIndex);
+    //只跟指定layer有值的voxel做对比
+    float mask = volumeindex(0, compareLayerName, targetIndex);
     if (mask == 0)
     {
         //printf("mask at %g is 0\n", targetIndex);
@@ -43,6 +44,7 @@ float calculateDistance(vector nowPos; vector targetIndex)
     return twoPointDis;
 }
 
+//比较两个距离，返回更近的那个
 float compareDistance(float newDistance; float minDistance)
 {
     //第一次的时候
@@ -74,7 +76,8 @@ float compareDistance(float newDistance; float minDistance)
     return -1;
 }
 
-float getNearVoxelDistance(vector maxRange; vector center; vector nowPosition)
+//主要方法
+float getNearVoxelDistance(string compareLayerName; vector maxRange; vector center; vector nowPosition)
 {
     int fuseCount = 0;
 
@@ -94,7 +97,7 @@ float getNearVoxelDistance(vector maxRange; vector center; vector nowPosition)
 
     int isNeedExpand = 1;
 
-    //往外扩展
+    //不断往外扩展
     while (isNeedExpand)
     {
         //printf("\nnow loop is : %g\n", fuseCount);
@@ -126,13 +129,13 @@ float getNearVoxelDistance(vector maxRange; vector center; vector nowPosition)
 
             index.x = int(xRange.x);
             //printf("\ttop voxel :");
-            float topVoxelDistance = calculateDistance(nowPosition, index);
+            float topVoxelDistance = calculateDistance(compareLayerName, nowPosition, index);
             minDistance = compareDistance(topVoxelDistance, minDistance);
             //printf("\ttop min dsitance is %g\n", minDistance);
 
             index.x = int(xRange.y);
             //printf("\tbottom voxel :");
-            float bottomVoxelDistance = calculateDistance(nowPosition, index);
+            float bottomVoxelDistance = calculateDistance(compareLayerName, nowPosition, index);
             minDistance = compareDistance(bottomVoxelDistance, minDistance);
             //printf("\tbottom min dsitance is %g\n", minDistance);
         }
@@ -145,13 +148,13 @@ float getNearVoxelDistance(vector maxRange; vector center; vector nowPosition)
 
             index.y = int(yRange.x);
             //printf("\tleft voxel :");
-            float leftVoxelDistance = calculateDistance(nowPosition, index);
+            float leftVoxelDistance = calculateDistance(compareLayerName, nowPosition, index);
             minDistance = compareDistance(leftVoxelDistance, minDistance);
             //printf("\tleft min dsitance is %g\n", minDistance);
 
             index.y = int(yRange.y);
             //printf("\tright voxel :");
-            float rightVoxelDistance = calculateDistance(nowPosition, index);
+            float rightVoxelDistance = calculateDistance(compareLayerName, nowPosition, index);
             minDistance = compareDistance(rightVoxelDistance, minDistance);
             //printf("\tright min dsitance is %g\n", minDistance);
         }
@@ -182,9 +185,12 @@ float getNearVoxelDistance(vector maxRange; vector center; vector nowPosition)
 //函数定义
 //----- ----- ----- -----
 //流程代码
-//只针对不在水系中的voxel计算距离
-if (@mask == 0)
+//只针对不在layer中的voxel计算距离
+
+if (@compare_layer == 0) //需要在binding中改为对应layer的名称
 {
+    const string COMPARE_LAYER_NAME = "mask"; //与binding中compare_mask的名称一致
+
     vector maxRange = set(@resx, @resy, @resz);
     vector centerIndex = set(@ix, @iy, @iz);
 
@@ -193,8 +199,8 @@ if (@mask == 0)
 
     //printf("now process at : %g\n", centerIndex);
     //printf("now position is : %g\n", nowPosition);
-    float distance = getNearVoxelDistance(maxRange, centerIndex, nowPosition);
+    float distance = getNearVoxelDistance(COMPARE_LAYER_NAME, maxRange, centerIndex, nowPosition);
 
-    @water_distance = distance;
+    @distance_mask = distance; //需要在binding中改为对应layer的名称
     //printf("index %g process done\n", centerIndex);
 }
